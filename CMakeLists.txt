@@ -1,0 +1,27 @@
+cmake_minimum_required(VERSION 3.20)
+project(ssikv CXX)
+
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
+include(Warnings)
+include(Sanitizers)
+
+option(SSIKV_BUILD_TESTS "build unit tests" ON)
+option(SSIKV_BUILD_DEMOS "build anomaly demos" ON)
+option(SSIKV_BUILD_BENCH "build benchmarks" ON)
+
+add_subdirectory(src)
+add_subdirectory(apps)
+if(SSIKV_BUILD_TESTS)
+    enable_testing()
+    add_subdirectory(tests)
+endif()
+if(SSIKV_BUILD_DEMOS)
+    add_subdirectory(demos)
+endif()
+if(SSIKV_BUILD_BENCH)
+    add_subdirectory(bench)
+endif()
