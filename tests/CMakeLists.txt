@@ -6,6 +6,7 @@ target_include_directories(catch2 SYSTEM PUBLIC ${CMAKE_SOURCE_DIR}/third_party/
 add_executable(ssikv_tests
     test_smoke.cpp
     test_types.cpp
+    test_status.cpp
 )
 target_link_libraries(ssikv_tests PRIVATE ssikv catch2)
 
