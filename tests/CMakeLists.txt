@@ -8,6 +8,7 @@ add_executable(ssikv_tests
     test_types.cpp
     test_status.cpp
     test_version.cpp
+    test_version_chain.cpp
 )
 target_link_libraries(ssikv_tests PRIVATE ssikv catch2)
 
