@@ -12,6 +12,7 @@ add_executable(ssikv_tests
     test_store.cpp
     test_transaction.cpp
     test_txn_manager_begin.cpp
+    test_txn_write.cpp
 )
 target_link_libraries(ssikv_tests PRIVATE ssikv catch2)
 

@@ -32,6 +32,13 @@ public:
     // not own; txn_manager retains and frees on terminal state.
     transaction* begin();
 
+    // buffers a write into the txn's private write-set. nothing is visible to
+    // other txns until commit installs.
+    status write(transaction& t, const key_t& k, const val_t& v);
+
+    // delete is just a write of a tombstone marker.
+    status del(transaction& t, const key_t& k);
+
 private:
     [[maybe_unused]] store& store_; // wired up in commits 09+
     std::atomic<ts_t> ts_;

@@ -14,4 +14,16 @@ transaction* txn_manager::begin() {
     }
 }
 
+status txn_manager::write(transaction& t, const key_t& k, const val_t& v) {
+    if (!t.active()) return status::err_txn_not_active;
+    t.writes[k] = v;
+    return status::ok;
+}
+
+status txn_manager::del(transaction& t, const key_t& k) {
+    if (!t.active()) return status::err_txn_not_active;
+    t.writes[k] = std::nullopt;
+    return status::ok;
+}
+
 } // namespace ssikv
