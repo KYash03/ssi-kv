@@ -4,7 +4,7 @@
 using namespace ssikv;
 
 namespace {
-std::unique_ptr<version> make(ts_t begin, val_t v, txn_id_t txn) {
+std::unique_ptr<version> make(ts_t begin, std::string v, txn_id_t txn) {
     return std::make_unique<version>(begin, std::move(v), false, txn);
 }
 } // namespace

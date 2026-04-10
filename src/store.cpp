@@ -2,7 +2,7 @@
 
 namespace ssikv {
 
-version_chain& store::chain_for(const key_t& k) {
+version_chain& store::chain_for(const std::string& k) {
     {
         std::shared_lock lk(mu_);
         auto it = chains_.find(k);
@@ -15,7 +15,7 @@ version_chain& store::chain_for(const key_t& k) {
     return *it->second;
 }
 
-const version_chain* store::find_chain(const key_t& k) const {
+const version_chain* store::find_chain(const std::string& k) const {
     std::shared_lock lk(mu_);
     auto it = chains_.find(k);
     return it == chains_.end() ? nullptr : it->second.get();

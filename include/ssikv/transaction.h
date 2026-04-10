@@ -27,10 +27,10 @@ struct transaction {
     state st{state::active};
 
     // private write buffer; not visible to other txns until commit installs.
-    std::unordered_map<key_t, std::optional<val_t>> writes; // nullopt = tombstone
+    std::unordered_map<std::string, std::optional<std::string>> writes; // nullopt = tombstone
 
     // keys this txn has read; used by FCW check at commit.
-    std::unordered_set<key_t> reads;
+    std::unordered_set<std::string> reads;
 
     // page-level siread locks held by this txn. reused for gc bookkeeping.
     std::unordered_set<page_id_t> sireads;

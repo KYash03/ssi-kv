@@ -9,6 +9,7 @@
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <string>
 #include <unordered_map>
 
 namespace ssikv {
@@ -34,10 +35,15 @@ public:
 
     // buffers a write into the txn's private write-set. nothing is visible to
     // other txns until commit installs.
-    status write(transaction& t, const key_t& k, const val_t& v);
+    status write(transaction& t, const std::string& k, const std::string& v);
 
     // delete is just a write of a tombstone marker.
-    status del(transaction& t, const key_t& k);
+    status del(transaction& t, const std::string& k);
+
+    // snapshot read at the txn's start_ts. records the key in the read-set so
+    // commit-time conflict checks see it. read-your-writes lands in commit 11.
+    // returns ok / not_found / err_*.
+    status read(transaction& t, const std::string& k, std::string& out);
 
 private:
     [[maybe_unused]] store& store_; // wired up in commits 09+

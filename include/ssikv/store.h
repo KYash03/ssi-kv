@@ -23,19 +23,19 @@ public:
     store& operator=(const store&) = delete;
 
     // returns the chain for the key, inserting an empty one if needed.
-    version_chain& chain_for(const key_t& k);
+    version_chain& chain_for(const std::string& k);
 
     // read-only lookup. nullptr if key has never been written.
-    const version_chain* find_chain(const key_t& k) const;
+    const version_chain* find_chain(const std::string& k) const;
 
-    page_id_t page_for(const key_t& k) const {
+    page_id_t page_for(const std::string& k) const {
         // simple, deterministic; std::hash is fine for non-adversarial input.
-        return std::hash<key_t>{}(k) % kNumPages;
+        return std::hash<std::string>{}(k) % kNumPages;
     }
 
 private:
     mutable std::shared_mutex mu_;
-    std::unordered_map<key_t, std::unique_ptr<version_chain>> chains_;
+    std::unordered_map<std::string, std::unique_ptr<version_chain>> chains_;
 };
 
 } // namespace ssikv

@@ -3,6 +3,7 @@
 #include <ssikv/types.h>
 
 #include <memory>
+#include <string>
 
 namespace ssikv {
 
@@ -13,12 +14,12 @@ namespace ssikv {
 struct version {
     ts_t begin_ts;       // commit_ts of creator
     ts_t end_ts;         // kTsInfinity until superseded by a later install
-    val_t value;
+    std::string value;
     bool tombstone;      // true if this version represents a delete
     txn_id_t creator;
     std::unique_ptr<version> next; // older versions; nullptr terminates the chain
 
-    version(ts_t begin, val_t v, bool dead, txn_id_t txn)
+    version(ts_t begin, std::string v, bool dead, txn_id_t txn)
         : begin_ts(begin), end_ts(kTsInfinity), value(std::move(v)),
           tombstone(dead), creator(txn), next(nullptr) {}
 };
