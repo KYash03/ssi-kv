@@ -33,6 +33,30 @@ TEST_CASE("read sees pre-existing committed version", "[txn][read]") {
     REQUIRE(out == "v1");
 }
 
+TEST_CASE("read sees txn's own buffered writes", "[txn][read][ryw]") {
+    store s;
+    txn_manager tm(s);
+    auto* t = tm.begin();
+    REQUIRE(tm.write(*t, "k", "fresh") == status::ok);
+
+    std::string out;
+    REQUIRE(tm.read(*t, "k", out) == status::ok);
+    REQUIRE(out == "fresh");
+}
+
+TEST_CASE("read sees own delete as not_found", "[txn][read][ryw]") {
+    store s;
+    auto& chain = s.chain_for("k");
+    chain.install(std::make_unique<version>(1, std::string{"old"}, false, 99));
+
+    txn_manager tm(s);
+    auto* t = tm.begin();
+    REQUIRE(tm.del(*t, "k") == status::ok);
+
+    std::string out;
+    REQUIRE(tm.read(*t, "k", out) == status::not_found);
+}
+
 TEST_CASE("read does not see versions installed after start_ts", "[txn][read]") {
     store s;
     install(s, "k", 1, "v1", 100); // start state

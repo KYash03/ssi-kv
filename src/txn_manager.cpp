@@ -28,6 +28,16 @@ status txn_manager::del(transaction& t, const std::string& k) {
 
 status txn_manager::read(transaction& t, const std::string& k, std::string& out) {
     if (!t.active()) return status::err_txn_not_active;
+
+    // read-your-writes: the txn's own writes shadow the snapshot. checked
+    // before recording in the read-set; the read-set is for FCW conflict
+    // detection against other txns, not against ourselves.
+    if (auto it = t.writes.find(k); it != t.writes.end()) {
+        if (!it->second.has_value()) return status::not_found; // own tombstone
+        out = *it->second;
+        return status::ok;
+    }
+
     t.reads.insert(k);
 
     const auto* chain = store_.find_chain(k);
