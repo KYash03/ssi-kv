@@ -1,4 +1,5 @@
 #include <ssikv/txn_manager.h>
+#include <ssikv/version.h>
 
 #include <vector>
 
@@ -62,9 +63,18 @@ status txn_manager::commit(transaction& t) {
         }
     }
 
-    // version install lands in commit 14. for now, just stamp commit_ts and
-    // release locks.
+    // assign commit_ts FIRST so every installed version stamps the same ts.
+    // ordering: commit_ts > start_ts of any concurrent committed txn we
+    // serialize after (cahill 2008 §3.2).
     t.commit_ts = next_ts();
+
+    for (auto& [k, v] : t.writes) {
+        auto& chain = store_.chain_for(k);
+        const bool dead = !v.has_value();
+        chain.install(std::make_unique<version>(
+            t.commit_ts, dead ? std::string{} : *v, dead, t.id));
+    }
+
     t.st = transaction::state::committed;
     wlocks_.release_all(t.id);
     return status::ok;
