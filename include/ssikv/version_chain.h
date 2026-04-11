@@ -54,6 +54,13 @@ public:
         return head_ == nullptr;
     }
 
+    // true if any installed version has begin_ts > snapshot. used by commit's
+    // FCW check to detect a concurrent committed writer of this key.
+    bool has_newer_than(ts_t snapshot) const {
+        std::shared_lock lk(mu_);
+        return head_ != nullptr && head_->begin_ts > snapshot;
+    }
+
 private:
     mutable std::shared_mutex mu_;
     std::unique_ptr<version> head_;

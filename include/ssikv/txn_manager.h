@@ -1,5 +1,6 @@
 #pragma once
 
+#include <ssikv/lock_manager.h>
 #include <ssikv/status.h>
 #include <ssikv/store.h>
 #include <ssikv/transaction.h>
@@ -10,11 +11,11 @@
 #include <mutex>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 
 namespace ssikv {
 
-class lock_manager;
 class siread_lock_manager;
 
 // brain of the engine. owns transactions, hands out timestamps, and runs the
@@ -45,9 +46,18 @@ public:
     // returns ok / not_found / err_*.
     status read(transaction& t, const std::string& k, std::string& out);
 
+    // commit goes: FCW check (commit 13) -> dangerous-structure check (commit
+    // 21) -> install versions (commit 14). returns aborted_* on failure; the
+    // txn is left in aborted state with abort_reason populated.
+    status commit(transaction& t);
+
+    // explicit user rollback. always succeeds.
+    void abort(transaction& t, std::string_view reason);
+
 private:
-    [[maybe_unused]] store& store_; // wired up in commits 09+
+    store& store_;
     std::atomic<ts_t> ts_;
+    lock_manager wlocks_;
 
     mutable std::mutex active_mu_;
     std::unordered_map<txn_id_t, std::unique_ptr<transaction>> active_;

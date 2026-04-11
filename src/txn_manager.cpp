@@ -1,5 +1,7 @@
 #include <ssikv/txn_manager.h>
 
+#include <vector>
+
 namespace ssikv {
 
 transaction* txn_manager::begin() {
@@ -23,6 +25,48 @@ status txn_manager::write(transaction& t, const std::string& k, const std::strin
 status txn_manager::del(transaction& t, const std::string& k) {
     if (!t.active()) return status::err_txn_not_active;
     t.writes[k] = std::nullopt;
+    return status::ok;
+}
+
+void txn_manager::abort(transaction& t, std::string_view reason) {
+    if (!t.active()) return;
+    t.st = transaction::state::aborted;
+    t.abort_reason.assign(reason);
+    wlocks_.release_all(t.id);
+}
+
+status txn_manager::commit(transaction& t) {
+    if (!t.active()) return status::err_txn_not_active;
+
+    // gather write-set keys.
+    std::vector<std::string> keys;
+    keys.reserve(t.writes.size());
+    for (const auto& [k, _] : t.writes) {
+        keys.push_back(k);
+    }
+
+    // lock_manager acquisition serializes commits against each other on the
+    // same keys. without this, two concurrent commits could both pass the
+    // chain-head check and install conflicting versions.
+    if (!keys.empty() && !wlocks_.try_acquire_all(t.id, keys)) {
+        abort(t, "aborted_si_first_committer_wins");
+        return status::aborted_si_first_committer_wins;
+    }
+
+    // FCW: any of our keys has a committed version newer than our snapshot ->
+    // a concurrent committed writer beat us (berenson 1995 §4.2).
+    for (const auto& k : keys) {
+        if (auto* chain = store_.find_chain(k); chain && chain->has_newer_than(t.start_ts)) {
+            abort(t, "aborted_si_first_committer_wins");
+            return status::aborted_si_first_committer_wins;
+        }
+    }
+
+    // version install lands in commit 14. for now, just stamp commit_ts and
+    // release locks.
+    t.commit_ts = next_ts();
+    t.st = transaction::state::committed;
+    wlocks_.release_all(t.id);
     return status::ok;
 }
 

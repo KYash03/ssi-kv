@@ -15,6 +15,7 @@ add_executable(ssikv_tests
     test_txn_write.cpp
     test_txn_read.cpp
     test_lock_manager.cpp
+    test_commit_fcw.cpp
 )
 target_link_libraries(ssikv_tests PRIVATE ssikv catch2)
 
