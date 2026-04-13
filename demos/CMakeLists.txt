@@ -4,4 +4,4 @@ function(add_ssikv_demo name)
     target_link_libraries(${name} PRIVATE ssikv)
 endfunction()
 
-# (binaries added in later commits)
+add_ssikv_demo(demo_lost_update)
