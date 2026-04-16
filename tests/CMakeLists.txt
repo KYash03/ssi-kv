@@ -18,6 +18,7 @@ add_executable(ssikv_tests
     test_commit_fcw.cpp
     test_commit_install.cpp
     test_siread_lock_manager.cpp
+    test_siread_on_read.cpp
 )
 target_link_libraries(ssikv_tests PRIVATE ssikv catch2)
 

@@ -34,6 +34,10 @@ void txn_manager::abort(transaction& t, std::string_view reason) {
     t.st = transaction::state::aborted;
     t.abort_reason.assign(reason);
     wlocks_.release_all(t.id);
+    // siread locks live past abort just like past commit (cahill 2008 §3.4):
+    // a write that lands later still needs to see them. on_finish marks them
+    // collectable; gc reclaims when the oldest active txn moves past finish_ts.
+    sirlocks_.on_finish(t.id, ts_.load(std::memory_order_seq_cst));
 }
 
 status txn_manager::commit(transaction& t) {
@@ -77,6 +81,7 @@ status txn_manager::commit(transaction& t) {
 
     t.st = transaction::state::committed;
     wlocks_.release_all(t.id);
+    sirlocks_.on_finish(t.id, t.commit_ts);
     return status::ok;
 }
 
@@ -93,6 +98,9 @@ status txn_manager::read(transaction& t, const std::string& k, std::string& out)
     }
 
     t.reads.insert(k);
+    const page_id_t page = store_.page_for(k);
+    sirlocks_.acquire(t.id, page);
+    t.sireads.insert(page);
 
     const auto* chain = store_.find_chain(k);
     if (chain == nullptr) return status::not_found;

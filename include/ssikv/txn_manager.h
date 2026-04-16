@@ -1,6 +1,7 @@
 #pragma once
 
 #include <ssikv/lock_manager.h>
+#include <ssikv/siread_lock_manager.h>
 #include <ssikv/status.h>
 #include <ssikv/store.h>
 #include <ssikv/transaction.h>
@@ -54,10 +55,14 @@ public:
     // explicit user rollback. always succeeds.
     void abort(transaction& t, std::string_view reason);
 
+    // siread accessors for tests / wire frontend.
+    const siread_lock_manager& sirlocks() const { return sirlocks_; }
+
 private:
     store& store_;
     std::atomic<ts_t> ts_;
     lock_manager wlocks_;
+    siread_lock_manager sirlocks_;
 
     mutable std::mutex active_mu_;
     std::unordered_map<txn_id_t, std::unique_ptr<transaction>> active_;
