@@ -18,6 +18,12 @@ transaction* txn_manager::find_active(txn_id_t id) {
     return it->second->active() ? it->second.get() : nullptr;
 }
 
+transaction* txn_manager::find_known(txn_id_t id) {
+    std::lock_guard lk(active_mu_);
+    auto it = active_.find(id);
+    return it == active_.end() ? nullptr : it->second.get();
+}
+
 transaction* txn_manager::begin() {
     auto t = std::make_unique<transaction>();
     t->start_ts = next_ts();
@@ -117,6 +123,15 @@ status txn_manager::read(transaction& t, const std::string& k, std::string& out)
 
     const auto* chain = store_.find_chain(k);
     if (chain == nullptr) return status::not_found;
+
+    // read-side rw-antidep: for every committed version newer than our
+    // snapshot, the writer is concurrent with us. record reader -> writer.
+    chain->for_each_newer(t.start_ts, [&](const version& nv) {
+        if (auto* w = find_known(nv.creator); w != nullptr && w->id != t.id) {
+            std::lock_guard lk(graph_mu_);
+            add_rw_edge(t, *w);
+        }
+    });
 
     const auto* v = chain->visible_at(t.start_ts);
     if (v == nullptr || v->tombstone) return status::not_found;

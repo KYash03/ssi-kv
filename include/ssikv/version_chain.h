@@ -61,6 +61,18 @@ public:
         return head_ != nullptr && head_->begin_ts > snapshot;
     }
 
+    // visit every committed version with begin_ts > snapshot, newest first.
+    // used by read() to find concurrent committed writers (the read-side
+    // rw-antidep insertion site, cahill 2008 §3.1, fig 6).
+    template <typename F>
+    void for_each_newer(ts_t snapshot, F fn) const {
+        std::shared_lock lk(mu_);
+        for (const version* v = head_.get(); v != nullptr && v->begin_ts > snapshot;
+             v = v->next.get()) {
+            fn(*v);
+        }
+    }
+
 private:
     mutable std::shared_mutex mu_;
     std::unique_ptr<version> head_;

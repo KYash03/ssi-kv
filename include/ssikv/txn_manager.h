@@ -64,13 +64,21 @@ public:
 private:
     // record a rw-antidependency from reader to writer. mirrors edges into
     // both txns' conflict lists (ports & grittner 2012 §3.2).
-    // caller must hold a graph-lock or equivalent serialization point.
+    // caller must hold graph_mu_.
     void add_rw_edge(transaction& reader, transaction& writer);
+
+    // find any tracked txn (active or terminated) by id. v1 keeps everything
+    // around; gc / summarization (ports & grittner 2012 §6) is future work.
+    transaction* find_known(txn_id_t id);
 
     store& store_;
     std::atomic<ts_t> ts_;
     lock_manager wlocks_;
     siread_lock_manager sirlocks_;
+
+    // serializes mutations to in/out_conflicts. shared lock would be wrong:
+    // every edge insertion is a write to two txns' sets. coarse but correct.
+    std::mutex graph_mu_;
 
     mutable std::mutex active_mu_;
     std::unordered_map<txn_id_t, std::unique_ptr<transaction>> active_;
