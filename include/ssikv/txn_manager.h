@@ -58,7 +58,15 @@ public:
     // siread accessors for tests / wire frontend.
     const siread_lock_manager& sirlocks() const { return sirlocks_; }
 
+    // for tests: peek at a still-active transaction by id.
+    transaction* find_active(txn_id_t id);
+
 private:
+    // record a rw-antidependency from reader to writer. mirrors edges into
+    // both txns' conflict lists (ports & grittner 2012 §3.2).
+    // caller must hold a graph-lock or equivalent serialization point.
+    void add_rw_edge(transaction& reader, transaction& writer);
+
     store& store_;
     std::atomic<ts_t> ts_;
     lock_manager wlocks_;

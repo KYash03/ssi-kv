@@ -5,6 +5,19 @@
 
 namespace ssikv {
 
+void txn_manager::add_rw_edge(transaction& reader, transaction& writer) {
+    if (reader.id == writer.id) return;
+    reader.out_conflicts.insert(writer.id);
+    writer.in_conflicts.insert(reader.id);
+}
+
+transaction* txn_manager::find_active(txn_id_t id) {
+    std::lock_guard lk(active_mu_);
+    auto it = active_.find(id);
+    if (it == active_.end()) return nullptr;
+    return it->second->active() ? it->second.get() : nullptr;
+}
+
 transaction* txn_manager::begin() {
     auto t = std::make_unique<transaction>();
     t->start_ts = next_ts();
