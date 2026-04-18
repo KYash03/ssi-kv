@@ -86,6 +86,21 @@ status txn_manager::commit(transaction& t) {
         }
     }
 
+    // write-side rw-antidep: any txn holding a SIREAD on a page we're about
+    // to write into is a reader-with-an-older-snapshot. record holder -> us.
+    // walked BEFORE we mark ourselves committed so concurrent reads still see
+    // the right state.
+    for (const auto& [k, _] : t.writes) {
+        const page_id_t page = store_.page_for(k);
+        for (txn_id_t holder_id : sirlocks_.holders_of(page)) {
+            if (holder_id == t.id) continue;
+            if (auto* r = find_known(holder_id); r != nullptr) {
+                std::lock_guard lk(graph_mu_);
+                add_rw_edge(*r, t);
+            }
+        }
+    }
+
     // assign commit_ts FIRST so every installed version stamps the same ts.
     // ordering: commit_ts > start_ts of any concurrent committed txn we
     // serialize after (cahill 2008 §3.2).

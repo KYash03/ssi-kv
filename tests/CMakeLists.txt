@@ -21,6 +21,7 @@ add_executable(ssikv_tests
     test_siread_on_read.cpp
     test_conflict_lists.cpp
     test_rw_edge_read_side.cpp
+    test_rw_edge_write_side.cpp
 )
 target_link_libraries(ssikv_tests PRIVATE ssikv catch2)
 
