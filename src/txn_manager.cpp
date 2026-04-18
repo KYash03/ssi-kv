@@ -101,6 +101,21 @@ status txn_manager::commit(transaction& t) {
         }
     }
 
+    // dangerous-structure check (fekete 2005 thm 2.1, cahill 2008 §3.1):
+    // a non-serializable cycle requires two consecutive rw-edges between
+    // concurrent txns. if we have both an incoming AND an outgoing rw-edge,
+    // we are potentially the pivot of such a cycle. abort us to break it.
+    // false positives are possible (we might not actually be in a cycle) but
+    // the algorithm is conservative by design.
+    {
+        std::lock_guard lk(graph_mu_);
+        if (!t.in_conflicts.empty() && !t.out_conflicts.empty()) {
+            t.commit_ts = 0;
+            abort(t, "aborted_ssi_dangerous_structure");
+            return status::aborted_ssi_dangerous_structure;
+        }
+    }
+
     // assign commit_ts FIRST so every installed version stamps the same ts.
     // ordering: commit_ts > start_ts of any concurrent committed txn we
     // serialize after (cahill 2008 §3.2).

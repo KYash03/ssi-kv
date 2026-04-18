@@ -22,6 +22,7 @@ add_executable(ssikv_tests
     test_conflict_lists.cpp
     test_rw_edge_read_side.cpp
     test_rw_edge_write_side.cpp
+    test_dangerous_structure.cpp
 )
 target_link_libraries(ssikv_tests PRIVATE ssikv catch2)
 
