@@ -24,6 +24,7 @@ add_executable(ssikv_tests
     test_rw_edge_write_side.cpp
     test_dangerous_structure.cpp
     test_safe_retry.cpp
+    test_siread_gc.cpp
 )
 target_link_libraries(ssikv_tests PRIVATE ssikv catch2)
 

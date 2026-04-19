@@ -24,6 +24,19 @@ transaction* txn_manager::find_known(txn_id_t id) {
     return it == active_.end() ? nullptr : it->second.get();
 }
 
+void txn_manager::gc_sireads() {
+    // oldest active start_ts: scan the txn map. could be cached; not a
+    // bottleneck at this scale.
+    ts_t oldest = ts_.load(std::memory_order_seq_cst);
+    {
+        std::lock_guard lk(active_mu_);
+        for (const auto& [_, tp] : active_) {
+            if (tp->active() && tp->start_ts < oldest) oldest = tp->start_ts;
+        }
+    }
+    sirlocks_.gc(oldest);
+}
+
 transaction* txn_manager::begin() {
     auto t = std::make_unique<transaction>();
     t->start_ts = next_ts();

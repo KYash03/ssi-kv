@@ -61,6 +61,12 @@ public:
     // for tests: peek at a still-active transaction by id.
     transaction* find_active(txn_id_t id);
 
+    // sweep siread locks belonging to txns finished before any active txn
+    // started. callers can run this periodically; in v1 the wire frontend will
+    // call it after every commit/abort. ports & grittner 2012 §6 has a fancier
+    // version that summarises rather than waits.
+    void gc_sireads();
+
 private:
     // record a rw-antidependency from reader to writer. mirrors edges into
     // both txns' conflict lists (ports & grittner 2012 §3.2).
