@@ -5,3 +5,4 @@ function(add_ssikv_demo name)
 endfunction()
 
 add_ssikv_demo(demo_lost_update)
+add_ssikv_demo(demo_write_skew)
