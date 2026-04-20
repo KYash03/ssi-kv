@@ -6,3 +6,4 @@ endfunction()
 
 add_ssikv_demo(demo_lost_update)
 add_ssikv_demo(demo_write_skew)
+add_ssikv_demo(demo_doctors_on_call)
