@@ -5,6 +5,7 @@ add_library(ssikv STATIC
     txn_manager.cpp
     lock_manager.cpp
     siread_lock_manager.cpp
+    repl.cpp
 )
 target_include_directories(ssikv PUBLIC ${CMAKE_SOURCE_DIR}/include)
 target_link_libraries(ssikv PUBLIC ssikv_warnings ssikv_sanitizers)
