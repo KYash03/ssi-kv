@@ -13,9 +13,9 @@ struct session {
     transaction* current = nullptr;
 };
 
-// dispatches a single newline-terminated line. returns the reply line (also
-// without trailing newline; the caller adds it). pure function on session +
-// txn_manager so it's trivial to test.
+// dispatches a single newline-terminated line. returns the reply line (without
+// trailing newline; the caller adds it). pure function on session +
+// txn_manager so it's easy to test.
 std::string handle_line(session& sess, txn_manager& tm, std::string_view line);
 
 } // namespace ssikv

@@ -27,7 +27,6 @@ add_executable(ssikv_tests
     test_siread_gc.cpp
     test_repl.cpp
 )
-target_include_directories(ssikv_tests PRIVATE ${CMAKE_SOURCE_DIR}/src)
 target_link_libraries(ssikv_tests PRIVATE ssikv catch2)
 
 add_test(NAME ssikv_tests COMMAND ssikv_tests)

@@ -1,4 +1,4 @@
-#include "repl.h"
+#include <ssikv/repl.h>
 
 #include <cctype>
 #include <sstream>

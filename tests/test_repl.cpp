@@ -1,6 +1,6 @@
 #include <catch_amalgamated.hpp>
 
-#include "../src/repl.h"
+#include <ssikv/repl.h>
 
 #include <ssikv/store.h>
 #include <ssikv/txn_manager.h>
