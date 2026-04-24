@@ -1,1 +1,2 @@
-# benchmarks land in commit 32.
+add_executable(bench_throughput bench_throughput.cpp)
+target_link_libraries(bench_throughput PRIVATE ssikv)
