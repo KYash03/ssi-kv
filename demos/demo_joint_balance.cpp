@@ -1,10 +1,17 @@
-// smallbank-style workload (cahill 2008 §5.1):
-//   the canonical pivot in smallbank is writecheck. its pure form requires
-//   ww-conflict-free overlap, so we use the multi-customer variant: a bank
-//   policy says the SUM of two linked-account checking balances must remain
-//   non-negative (e.g. a joint household). two writecheck txns each pay out
-//   from their own customer, both find the sum sufficient, and commit. ssi
-//   catches it via the same write-skew shape.
+// joint balance write skew (smallbank-flavoured but not the canonical pivot):
+//
+// the literal smallbank pivot in cahill 2008 §5.1 is on a single customer's
+// writecheck transaction. that pivot has a ww-conflict on the checking row
+// between writecheck and any concurrent transactsavings, so SI's first-
+// committer-wins fires before the SSI dangerous-structure check ever runs;
+// you can't observe the pivot without three or more transactions and some
+// careful schema choices. it's a valid SSI scenario but not a clean two-txn
+// demo.
+//
+// what this demo does instead: a bank policy tying two linked accounts
+// (e.g. joint household, two customers) by a sum constraint. each customer's
+// writecheck reads both balances and writes only their own row. no ww
+// conflict. classic write-skew shape; SSI catches it.
 
 #include "harness.h"
 
@@ -36,7 +43,7 @@ int read_int(txn_manager& tm, transaction& t, const std::string& k) {
 int main() {
     store s;
     txn_manager tm(s);
-    if (!seed(tm)) return demo::report(false, "smallbank seed");
+    if (!seed(tm)) return demo::report(false, "joint-balance seed");
 
     auto* a = tm.begin(); // pays out from customer 1
     auto* b = tm.begin(); // pays out from customer 2
@@ -60,5 +67,5 @@ int main() {
     ok &= demo::expect_eq(tm.commit(*b), status::aborted_ssi_dangerous_structure,
                           "b must abort");
 
-    return demo::report(ok, "smallbank joint-balance writecheck pivot");
+    return demo::report(ok, "joint-balance write skew (smallbank-flavoured)");
 }
