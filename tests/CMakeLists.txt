@@ -27,6 +27,7 @@ add_executable(ssikv_tests
     test_siread_gc.cpp
     test_repl.cpp
     test_concurrent.cpp
+    test_active_gc.cpp
 )
 find_package(Threads REQUIRED)
 target_link_libraries(ssikv_tests PRIVATE Threads::Threads)

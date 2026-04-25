@@ -58,8 +58,14 @@ public:
     // siread accessors for tests / wire frontend.
     const siread_lock_manager& sirlocks() const { return sirlocks_; }
 
-    // for tests: peek at a still-active transaction by id.
-    transaction* find_active(txn_id_t id);
+    // for tests: peek at a still-active transaction by id. shared_ptr so the
+    // caller can hold the txn alive across other operations even if the
+    // active map is being concurrently gc'd.
+    std::shared_ptr<transaction> find_active(txn_id_t id);
+
+    // total tracked txns (active + terminated-but-still-referenced). useful
+    // as a smoke test that gc_sireads() reaps committed txns.
+    size_t tracked_count() const;
 
     // sweep siread locks belonging to txns finished before any active txn
     // started. callers can run this periodically; in v1 the wire frontend will
@@ -75,7 +81,7 @@ private:
 
     // find any tracked txn (active or terminated) by id. v1 keeps everything
     // around; gc / summarization (ports & grittner 2012 §6) is future work.
-    transaction* find_known(txn_id_t id);
+    std::shared_ptr<transaction> find_known(txn_id_t id);
 
     store& store_;
     std::atomic<ts_t> ts_;
@@ -87,7 +93,7 @@ private:
     std::mutex graph_mu_;
 
     mutable std::mutex active_mu_;
-    std::unordered_map<txn_id_t, std::unique_ptr<transaction>> active_;
+    std::unordered_map<txn_id_t, std::shared_ptr<transaction>> active_;
     txn_id_t next_id_{1};
 
     ts_t next_ts() { return ts_.fetch_add(1, std::memory_order_seq_cst); }

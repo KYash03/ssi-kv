@@ -22,5 +22,5 @@ TEST_CASE("find_active returns the txn for in-flight ids", "[conflicts][active]"
     store s;
     txn_manager tm(s);
     auto* t = tm.begin();
-    REQUIRE(tm.find_active(t->id) == t);
+    REQUIRE(tm.find_active(t->id).get() == t);
 }

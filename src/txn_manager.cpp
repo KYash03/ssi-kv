@@ -11,17 +11,22 @@ void txn_manager::add_rw_edge(transaction& reader, transaction& writer) {
     writer.in_conflicts.insert(reader.id);
 }
 
-transaction* txn_manager::find_active(txn_id_t id) {
+std::shared_ptr<transaction> txn_manager::find_active(txn_id_t id) {
     std::lock_guard lk(active_mu_);
     auto it = active_.find(id);
     if (it == active_.end()) return nullptr;
-    return it->second->active() ? it->second.get() : nullptr;
+    return it->second->active() ? it->second : nullptr;
 }
 
-transaction* txn_manager::find_known(txn_id_t id) {
+size_t txn_manager::tracked_count() const {
+    std::lock_guard lk(active_mu_);
+    return active_.size();
+}
+
+std::shared_ptr<transaction> txn_manager::find_known(txn_id_t id) {
     std::lock_guard lk(active_mu_);
     auto it = active_.find(id);
-    return it == active_.end() ? nullptr : it->second.get();
+    return it == active_.end() ? nullptr : it->second;
 }
 
 void txn_manager::gc_sireads() {
@@ -35,10 +40,27 @@ void txn_manager::gc_sireads() {
         }
     }
     sirlocks_.gc(oldest);
+
+    // also drop terminated txn records whose finish_ts is in the strict past.
+    // safe because:
+    //   - read-side rw-edges only fire on versions newer than reader.start_ts,
+    //     and oldest active reader has start_ts >= oldest > finish_ts, so no
+    //     active reader can ever target this txn's installed versions.
+    //   - write-side rw-edges fire from siread holders, which we just gc'd.
+    //   - find_known() returning nullptr is a no-op in both edge sites.
+    std::lock_guard lk(active_mu_);
+    for (auto it = active_.begin(); it != active_.end();) {
+        const auto& tp = it->second;
+        if (!tp->active() && tp->finish_ts < oldest) {
+            it = active_.erase(it);
+        } else {
+            ++it;
+        }
+    }
 }
 
 transaction* txn_manager::begin() {
-    auto t = std::make_unique<transaction>();
+    auto t = std::make_shared<transaction>();
     t->start_ts = next_ts();
     {
         std::lock_guard lk(active_mu_);
@@ -68,7 +90,9 @@ void txn_manager::abort(transaction& t, std::string_view reason) {
     // siread locks live past abort just like past commit (cahill 2008 §3.4):
     // a write that lands later still needs to see them. on_finish marks them
     // collectable; gc reclaims when the oldest active txn moves past finish_ts.
-    sirlocks_.on_finish(t.id, ts_.load(std::memory_order_seq_cst));
+    const ts_t now = ts_.load(std::memory_order_seq_cst);
+    sirlocks_.on_finish(t.id, now);
+    t.finish_ts = now;
     t.store_state(transaction::state::aborted);
 }
 
@@ -107,7 +131,7 @@ status txn_manager::commit(transaction& t) {
         const page_id_t page = store_.page_for(k);
         for (txn_id_t holder_id : sirlocks_.holders_of(page)) {
             if (holder_id == t.id) continue;
-            if (auto* r = find_known(holder_id); r != nullptr) {
+            if (auto r = find_known(holder_id); r) {
                 std::lock_guard lk(graph_mu_);
                 add_rw_edge(*r, t);
             }
@@ -158,6 +182,7 @@ status txn_manager::commit(transaction& t) {
 
     wlocks_.release_all(t.id);
     sirlocks_.on_finish(t.id, t.commit_ts);
+    t.finish_ts = t.commit_ts;
     t.store_state(transaction::state::committed);
     return status::ok;
 }
@@ -185,7 +210,7 @@ status txn_manager::read(transaction& t, const std::string& k, std::string& out)
     // read-side rw-antidep: for every committed version newer than our
     // snapshot, the writer is concurrent with us. record reader -> writer.
     chain->for_each_newer(t.start_ts, [&](const version& nv) {
-        if (auto* w = find_known(nv.creator); w != nullptr && w->id != t.id) {
+        if (auto w = find_known(nv.creator); w && w->id != t.id) {
             std::lock_guard lk(graph_mu_);
             add_rw_edge(t, *w);
         }

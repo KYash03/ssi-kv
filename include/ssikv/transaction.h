@@ -25,9 +25,12 @@ struct transaction {
     txn_id_t id{kInvalidTxn};
     ts_t start_ts{0};
     ts_t commit_ts{0}; // 0 until commit assigns it; only the owning thread writes
+    ts_t finish_ts{0}; // commit_ts on commit, current ts at abort time
     // st is atomic because gc_sireads iterates the active map (under
     // active_mu_) and reads st via active() while the owning thread may be
-    // mid-commit/abort and writing st without holding active_mu_.
+    // mid-commit/abort and writing st without holding active_mu_. writes to
+    // commit_ts/finish_ts are sequenced before store_state, so a reader that
+    // sees state != active also sees those values (release/acquire pairing).
     std::atomic<state> st{state::active};
 
     // private write buffer; not visible to other txns until commit installs.
