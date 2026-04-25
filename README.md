@@ -3,6 +3,16 @@
 in-memory mvcc key-value store with serializable snapshot isolation.
 single node, no persistence.
 
+ssi catches write-skew on top of plain snapshot isolation. with x = y = 50
+and a constraint x + y >= 0, two concurrent transactions each subtract 100
+from a different account:
+
+    t1: read x, read y, write x = -50, commit  -> ok
+    t2: read x, read y, write y = -50, commit  -> abort_ssi_dangerous_structure
+
+plain SI would let both commit and break the constraint. ssi spots the
+rw-cycle (t1 -> t2 via y, t2 -> t1 via x) at t2's commit and aborts.
+
 based on:
 - berenson et al. 1995, *a critique of ansi sql isolation levels*, sigmod
   (https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/tr-95-51.pdf)
@@ -19,7 +29,20 @@ based on:
 
     cmake -B build
     cmake --build build -j
-    ./build/apps/ssikv
+    ./build/apps/ssikv --port 7777
+
+talk to it with `nc localhost 7777`:
+
+    BEGIN
+    OK txn=1 start_ts=1
+    PUT x 50
+    OK
+    GET x
+    OK 50
+    COMMIT
+    OK commit_ts=2
+
+omit `--port` for a stdin repl.
 
 ## tests
 
@@ -37,12 +60,10 @@ what's in there:
 * `demo_write_skew`         - berenson 1995 A5B. SSI catches it.
 * `demo_doctors_on_call`    - cahill 2008 fig 1.
 * `demo_read_only_anomaly`  - fekete 2005 ex 1.3. read-only txn in the cycle.
-* `demo_joint_balance`      - smallbank-flavoured write skew. see demo source
-                              for why it's not the literal cahill 2008 §5.1
-                              pivot (that one needs a 3-txn schedule and
-                              schema choices that don't fit a simple demo).
-* `demo_tpcc_subset`        - fekete 2005 §4. must NOT abort. false-positive
-                              sanity check.
+* `demo_joint_balance`      - smallbank-flavoured write skew (see source for
+                              why it's not the literal cahill §5.1 pivot).
+* `demo_tpcc_subset`        - fekete 2005 §4. must NOT abort (false-positive
+                              sanity check).
 
 ## sanitizers
 
