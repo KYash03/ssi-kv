@@ -2,6 +2,7 @@
 
 #include <ssikv/types.h>
 
+#include <atomic>
 #include <optional>
 #include <string>
 #include <unordered_map>
@@ -23,8 +24,11 @@ struct transaction {
 
     txn_id_t id{kInvalidTxn};
     ts_t start_ts{0};
-    ts_t commit_ts{0}; // 0 until commit assigns it
-    state st{state::active};
+    ts_t commit_ts{0}; // 0 until commit assigns it; only the owning thread writes
+    // st is atomic because gc_sireads iterates the active map (under
+    // active_mu_) and reads st via active() while the owning thread may be
+    // mid-commit/abort and writing st without holding active_mu_.
+    std::atomic<state> st{state::active};
 
     // private write buffer; not visible to other txns until commit installs.
     std::unordered_map<std::string, std::optional<std::string>> writes; // nullopt = tombstone
@@ -44,7 +48,9 @@ struct transaction {
     // human-readable reason for aborts; surfaced by the wire frontend.
     std::string abort_reason;
 
-    bool active() const { return st == state::active; }
+    bool active() const { return st.load(std::memory_order_acquire) == state::active; }
+    state load_state() const { return st.load(std::memory_order_acquire); }
+    void store_state(state s) { st.store(s, std::memory_order_release); }
 };
 
 } // namespace ssikv

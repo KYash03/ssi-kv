@@ -26,7 +26,10 @@ add_executable(ssikv_tests
     test_safe_retry.cpp
     test_siread_gc.cpp
     test_repl.cpp
+    test_concurrent.cpp
 )
+find_package(Threads REQUIRED)
+target_link_libraries(ssikv_tests PRIVATE Threads::Threads)
 target_link_libraries(ssikv_tests PRIVATE ssikv catch2)
 
 add_test(NAME ssikv_tests COMMAND ssikv_tests)

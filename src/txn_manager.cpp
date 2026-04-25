@@ -63,13 +63,13 @@ status txn_manager::del(transaction& t, const std::string& k) {
 
 void txn_manager::abort(transaction& t, std::string_view reason) {
     if (!t.active()) return;
-    t.st = transaction::state::aborted;
     t.abort_reason.assign(reason);
     wlocks_.release_all(t.id);
     // siread locks live past abort just like past commit (cahill 2008 §3.4):
     // a write that lands later still needs to see them. on_finish marks them
     // collectable; gc reclaims when the oldest active txn moves past finish_ts.
     sirlocks_.on_finish(t.id, ts_.load(std::memory_order_seq_cst));
+    t.store_state(transaction::state::aborted);
 }
 
 status txn_manager::commit(transaction& t) {
@@ -123,8 +123,23 @@ status txn_manager::commit(transaction& t) {
     {
         std::lock_guard lk(graph_mu_);
         if (!t.in_conflicts.empty() && !t.out_conflicts.empty()) {
+            std::string detail = "in=[";
+            bool first = true;
+            for (txn_id_t id : t.in_conflicts) {
+                if (!first) detail += ',';
+                detail += 'T' + std::to_string(id);
+                first = false;
+            }
+            detail += "] out=[";
+            first = true;
+            for (txn_id_t id : t.out_conflicts) {
+                if (!first) detail += ',';
+                detail += 'T' + std::to_string(id);
+                first = false;
+            }
+            detail += ']';
             t.commit_ts = 0;
-            abort(t, "aborted_ssi_dangerous_structure");
+            abort(t, "aborted_ssi_dangerous_structure " + detail);
             return status::aborted_ssi_dangerous_structure;
         }
     }
@@ -141,9 +156,9 @@ status txn_manager::commit(transaction& t) {
             t.commit_ts, dead ? std::string{} : *v, dead, t.id));
     }
 
-    t.st = transaction::state::committed;
     wlocks_.release_all(t.id);
     sirlocks_.on_finish(t.id, t.commit_ts);
+    t.store_state(transaction::state::committed);
     return status::ok;
 }
 

@@ -55,7 +55,7 @@ TEST_CASE("pivot with both incoming and outgoing rw-edges aborts", "[ssi][danger
     REQUIRE(tm.write(*b, "x", "v") == status::ok);
     REQUIRE(tm.commit(*b) == status::aborted_ssi_dangerous_structure);
     REQUIRE_FALSE(b->active());
-    REQUIRE(b->abort_reason == "aborted_ssi_dangerous_structure");
+    REQUIRE(b->abort_reason.starts_with("aborted_ssi_dangerous_structure"));
 }
 
 TEST_CASE("only-incoming rw-edge does NOT abort on commit", "[ssi][danger]") {
