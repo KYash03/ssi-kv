@@ -14,7 +14,6 @@
 #include <sys/socket.h>
 #include <thread>
 #include <unistd.h>
-#include <vector>
 
 namespace ssikv {
 
@@ -81,7 +80,9 @@ int run_tcp(ssikv::txn_manager& tm, int port) {
     }
     std::cerr << "ssikv listening on 127.0.0.1:" << port << "\n";
 
-    std::vector<std::jthread> workers;
+    // detach per-connection threads. infinite accept loop, no orderly
+    // shutdown in v1; jthread would be cleaner but isn't available on the
+    // older libc++ shipped on macos ci runners.
     while (true) {
         int conn = ::accept(fd, nullptr, nullptr);
         if (conn < 0) {
@@ -89,7 +90,7 @@ int run_tcp(ssikv::txn_manager& tm, int port) {
             std::cerr << "accept: " << std::strerror(errno) << "\n";
             break;
         }
-        workers.emplace_back([conn, &tm] { ssikv::serve(conn, tm); });
+        std::thread([conn, &tm] { ssikv::serve(conn, tm); }).detach();
     }
     ::close(fd);
     return 0;

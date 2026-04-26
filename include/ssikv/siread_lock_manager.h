@@ -2,6 +2,7 @@
 
 #include <ssikv/types.h>
 
+#include <mutex>
 #include <shared_mutex>
 #include <unordered_map>
 #include <unordered_set>

@@ -4,6 +4,7 @@
 #include <ssikv/version.h>
 
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <shared_mutex>
 #include <utility>
