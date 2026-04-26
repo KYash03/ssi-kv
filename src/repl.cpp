@@ -88,15 +88,19 @@ std::string handle_line(session& sess, txn_manager& tm, std::string_view line) {
     if (verb == "COMMIT") {
         if (sess.current == nullptr) return err("no active txn");
         auto s = tm.commit(*sess.current);
-        auto* t = sess.current;
+        // snapshot commit_ts BEFORE gc_sireads, which may reap the txn record
+        // (it's terminated and possibly the oldest committed). ports & grittner
+        // 2012 §6 — siread retention follows the oldest active start_ts.
+        const ts_t commit_ts = sess.current->commit_ts;
+        const std::string reason = sess.current->abort_reason;
         sess.current = nullptr;
         tm.gc_sireads();
         if (s == status::ok) {
             std::ostringstream os;
-            os << "OK commit_ts=" << t->commit_ts;
+            os << "OK commit_ts=" << commit_ts;
             return os.str();
         }
-        return aborted(to_string(s));
+        return aborted(reason.empty() ? std::string{to_string(s)} : reason);
     }
 
     if (verb == "ROLLBACK") {
